@@ -1,6 +1,7 @@
 import pygame
 import random
 import math
+import os
 
 class Fan:
     def __init__(self, x, y, row, seat):
@@ -126,7 +127,64 @@ class Crowd:
         self.noise_level = 0.5
         self.wave_active = False
         self.wave_position = 0
+        self.cheer_active = False
+        self.cheer_duration = 0
+        self.cheer_cooldown = 0
         
+        # Sound system
+        self.sounds_enabled = True
+        self.cheer_sounds = []
+        self.load_cheer_sounds()
+        
+    def load_cheer_sounds(self):
+        """Load cheer sound effects"""
+        try:
+            # Try to load existing sound files
+            sound_files = ['cheer1.wav', 'cheer2.wav', 'cheer3.wav', 'crowd_roar.wav']
+            for sound_file in sound_files:
+                if os.path.exists(sound_file):
+                    sound = pygame.mixer.Sound(sound_file)
+                    self.cheer_sounds.append(sound)
+            
+            # If no sound files found, create simple cheer sounds programmatically
+            if not self.cheer_sounds:
+                self.create_simple_cheer_sounds()
+                
+        except Exception as e:
+            print(f"Could not load cheer sounds: {e}")
+            self.sounds_enabled = False
+    
+    def create_simple_cheer_sounds(self):
+        """Create simple cheer sounds programmatically"""
+        try:
+            # Generate simple cheer sounds using pygame's sound generation
+            for _ in range(3):
+                # Create a simple white noise burst for crowd noise
+                duration = 0.5  # seconds
+                sample_rate = 22050
+                samples = int(duration * sample_rate)
+                
+                # Generate white noise
+                noise = [random.randint(-32768, 32767) for _ in range(samples)]
+                
+                # Convert to pygame sound
+                sound = pygame.sndarray.make_sound(noise)
+                sound.set_volume(0.3)
+                self.cheer_sounds.append(sound)
+                
+        except Exception as e:
+            print(f"Could not create cheer sounds: {e}")
+            self.sounds_enabled = False
+    
+    def play_cheer_sound(self):
+        """Play a random cheer sound"""
+        if self.sounds_enabled and self.cheer_sounds:
+            try:
+                cheer_sound = random.choice(self.cheer_sounds)
+                cheer_sound.play()
+            except Exception as e:
+                print(f"Could not play cheer sound: {e}")
+    
     def create_crowd_sections(self):
         """Create fans in stadium sections (exactly at court edges, no overlap)"""
         # Top stands (above court) - exactly at court top edge
@@ -178,6 +236,23 @@ class Crowd:
                                    (fan.y - ball_position[1])**2)
                 if distance < 200:
                     action_intensity = max(action_intensity, 0.6)
+        
+        # Handle cheering
+        if self.cheer_cooldown > 0:
+            self.cheer_cooldown -= 1
+        
+        # Random chance to start a cheer (every few seconds)
+        if self.cheer_cooldown == 0 and random.random() < 0.005:
+            self.cheer_active = True
+            self.cheer_duration = random.randint(60, 120)  # 1-2 seconds at 60 FPS
+            self.cheer_cooldown = random.randint(300, 600)  # 5-10 seconds cooldown
+            self.play_cheer_sound()  # Play sound when cheer starts
+        
+        if self.cheer_active:
+            self.cheer_duration -= 1
+            action_intensity = min(1.0, action_intensity + 0.4)  # Boost excitement during cheers
+            if self.cheer_duration <= 0:
+                self.cheer_active = False
         
         # Update all fans
         for fan in self.fans:

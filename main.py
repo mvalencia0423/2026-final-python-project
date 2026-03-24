@@ -10,6 +10,7 @@ from defenders import DefenderManager
 from crowd import Crowd
 
 pygame.init()
+pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
 
 WIDTH = 800
 HEIGHT = 600
@@ -20,9 +21,10 @@ pygame.display.set_caption("Street Hoops")
 clock = pygame.time.Clock()
 
 # Game states
+STATE_TITLE_SCREEN = "title_screen"
 STATE_LOCKER_ROOM = "locker_room"
 STATE_PLAYING = "playing"
-current_state = STATE_LOCKER_ROOM
+current_state = STATE_TITLE_SCREEN
 
 # Initialize locker room
 locker_room = LockerRoom(screen)
@@ -50,6 +52,35 @@ meter_green_zone = (0.4, 0.6)
 # Camera for first-person view
 camera_x = 0
 camera_y = 0
+
+def draw_title_screen(screen):
+    # Black background
+    screen.fill((0, 0, 0))
+    
+    # Title "Street Hoops" - large white text
+    title_font = pygame.font.SysFont("impact", 70, bold=True)
+    title_text = title_font.render("STREET HOOPS", True, (255, 255, 255))
+    title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 100))
+    screen.blit(title_text, title_rect)
+    
+    # Creator credits - smaller white text
+    credits_font = pygame.font.SysFont("arial", 24)
+    credits_lines = [
+        "Created by: Moses Valencia",
+        "Designer: Moses Valencia", 
+        "Artist: Moses Valencia"
+    ]
+    
+    for i, line in enumerate(credits_lines):
+        credit_text = credits_font.render(line, True, (255, 255, 255))
+        credit_rect = credit_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 50 + i * 30))
+        screen.blit(credit_text, credit_rect)
+    
+    # Press any key to continue
+    continue_font = pygame.font.SysFont("arial", 20)
+    continue_text = continue_font.render("Press SPACE to continue", True, (200, 200, 200))
+    continue_rect = continue_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+    screen.blit(continue_text, continue_rect)
 
 def draw_court(screen, camera_x, camera_y):
     # 2026 Xbox-style basketball arena with realistic graphics
@@ -136,107 +167,6 @@ def draw_court(screen, camera_x, camera_y):
     
     # Court logos and markings
     draw_court_logos(screen, camera_x, camera_y, center_x, court_top, court_height)
-
-def draw_arena_fans(screen, camera_x, camera_y, court_left, court_top, court_width, court_height):
-    # Draw realistic fans in the stands
-    
-    # Background stands (dark)
-    stand_color = (40, 40, 50)
-    
-    # Top stands
-    pygame.draw.rect(screen, stand_color, 
-                     (court_left - 100, court_top - 150, court_width + 200, 140))
-    
-    # Side stands (left)
-    pygame.draw.rect(screen, stand_color, 
-                     (court_left - 150, court_top, 140, court_height))
-    
-    # Side stands (right)
-    pygame.draw.rect(screen, stand_color, 
-                     (court_left + court_width + 10, court_top, 140, court_height))
-    
-    # Draw individual realistic fans
-    import random
-    random.seed(42)  # Consistent fan positions
-    
-    # Top stand fans
-    for row in range(8):
-        for col in range(30):
-            fan_x = court_left - 80 + col * 40
-            fan_y = court_top - 130 + row * 15
-            
-            # Random fan appearance
-            skin_tones = [(255, 220, 177), (255, 195, 140), (235, 170, 120), (180, 120, 80), (120, 80, 50)]
-            shirt_colors = [(200, 50, 50), (50, 50, 200), (50, 200, 50), (255, 255, 255), (100, 100, 100), (255, 165, 0)]
-            hair_colors = [(0, 0, 0), (50, 30, 0), (255, 255, 255), (200, 150, 100)]
-            
-            skin_color = random.choice(skin_tones)
-            shirt_color = random.choice(shirt_colors)
-            hair_color = random.choice(hair_colors)
-            
-            # Draw realistic fan person
-            # Head
-            pygame.draw.ellipse(screen, skin_color, (fan_x - 3, fan_y - 8, 6, 8))
-            # Hair
-            if random.random() > 0.3:  # 70% have hair
-                pygame.draw.arc(screen, hair_color, (fan_x - 3, fan_y - 10, 6, 6), 0, 3.14, 2)
-            # Body/torso
-            pygame.draw.rect(screen, shirt_color, (fan_x - 4, fan_y, 8, 10))
-            # Arms
-            pygame.draw.rect(screen, skin_color, (fan_x - 6, fan_y + 2, 2, 6))
-            pygame.draw.rect(screen, skin_color, (fan_x + 4, fan_y + 2, 2, 6))
-    
-    # Left stand fans
-    for row in range(15):
-        for col in range(8):
-            fan_x = court_left - 130 + col * 15
-            fan_y = court_top + 50 + row * 40
-            
-            skin_tones = [(255, 220, 177), (255, 195, 140), (235, 170, 120), (180, 120, 80), (120, 80, 50)]
-            shirt_colors = [(200, 50, 50), (50, 50, 200), (50, 200, 50), (255, 255, 255), (100, 100, 100), (255, 165, 0)]
-            hair_colors = [(0, 0, 0), (50, 30, 0), (255, 255, 255), (200, 150, 100)]
-            
-            skin_color = random.choice(skin_tones)
-            shirt_color = random.choice(shirt_colors)
-            hair_color = random.choice(hair_colors)
-            
-            # Draw realistic fan person (side view)
-            # Head
-            pygame.draw.ellipse(screen, skin_color, (fan_x - 4, fan_y - 6, 8, 10))
-            # Hair
-            if random.random() > 0.3:
-                pygame.draw.arc(screen, hair_color, (fan_x - 4, fan_y - 8, 8, 8), 0, 3.14, 3)
-            # Body/torso
-            pygame.draw.rect(screen, shirt_color, (fan_x - 5, fan_y + 4, 10, 12))
-            # Arms
-            pygame.draw.rect(screen, skin_color, (fan_x - 8, fan_y + 6, 3, 8))
-            pygame.draw.rect(screen, skin_color, (fan_x + 5, fan_y + 6, 3, 8))
-    
-    # Right stand fans
-    for row in range(15):
-        for col in range(8):
-            fan_x = court_left + court_width + 30 + col * 15
-            fan_y = court_top + 50 + row * 40
-            
-            skin_tones = [(255, 220, 177), (255, 195, 140), (235, 170, 120), (180, 120, 80), (120, 80, 50)]
-            shirt_colors = [(200, 50, 50), (50, 50, 200), (50, 200, 50), (255, 255, 255), (100, 100, 100), (255, 165, 0)]
-            hair_colors = [(0, 0, 0), (50, 30, 0), (255, 255, 255), (200, 150, 100)]
-            
-            skin_color = random.choice(skin_tones)
-            shirt_color = random.choice(shirt_colors)
-            hair_color = random.choice(hair_colors)
-            
-            # Draw realistic fan person (side view)
-            # Head
-            pygame.draw.ellipse(screen, skin_color, (fan_x - 4, fan_y - 6, 8, 10))
-            # Hair
-            if random.random() > 0.3:
-                pygame.draw.arc(screen, hair_color, (fan_x - 4, fan_y - 8, 8, 8), 0, 3.14, 3)
-            # Body/torso
-            pygame.draw.rect(screen, shirt_color, (fan_x - 5, fan_y + 4, 10, 12))
-            # Arms
-            pygame.draw.rect(screen, skin_color, (fan_x - 8, fan_y + 6, 3, 8))
-            pygame.draw.rect(screen, skin_color, (fan_x + 5, fan_y + 6, 3, 8))
 
 def draw_arena_lighting(screen, camera_x, camera_y, court_left, court_top, court_width, court_height):
     # Professional arena lighting effects
@@ -354,7 +284,7 @@ def start_game():
     defenders = DefenderManager()
     
     # Initialize ultra-realistic crowd system
-    crowd = Crowd(WIDTH, HEIGHT)
+    crowd = Crowd(1200, 700)
     
     # Start by controlling the main player
     controlled_player = player
@@ -377,7 +307,12 @@ while running:
         if event.type == pygame.QUIT:
             running = False
         
-        if current_state == STATE_LOCKER_ROOM:
+        if current_state == STATE_TITLE_SCREEN:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    current_state = STATE_LOCKER_ROOM
+        
+        elif current_state == STATE_LOCKER_ROOM:
             result = locker_room.handle_event(event)
             if result == "start_game":
                 start_game()
@@ -423,7 +358,11 @@ while running:
                         else:
                             controlled_player = player
     
-    if current_state == STATE_LOCKER_ROOM:
+    if current_state == STATE_TITLE_SCREEN:
+        draw_title_screen(screen)
+        pygame.display.update()
+    
+    elif current_state == STATE_LOCKER_ROOM:
         locker_room.draw()
         pygame.display.update()
     
@@ -522,7 +461,10 @@ while running:
         # Draw street basketball court
         draw_court(screen, camera_x, camera_y)
         
-        # Draw ultra-realistic crowd
+        # Draw game objects with camera offset
+        hoop.draw(screen, camera_x, camera_y)
+        
+        # Draw ultra-realistic crowd (draw after hoop so it appears behind)
         if crowd:
             crowd.draw(screen, camera_x, camera_y)
         
@@ -536,9 +478,6 @@ while running:
             pygame.draw.rect(screen, (100, 100, 100), (meter_x, meter_y, meter_width, meter_height))
             fill_width = int(meter_pos * meter_width)
             pygame.draw.rect(screen, meter_color, (meter_x, meter_y, fill_width, meter_height))
-        
-        # Draw game objects with camera offset
-        hoop.draw(screen, camera_x, camera_y)
         
         # Draw teammates and defenders
         if teammates and defenders:
