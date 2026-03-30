@@ -323,6 +323,7 @@ while running:
                     # Shoot using the shot meter if ball is currently held
                     if ball.held and controlled_player:
                         meter_good = meter_green_zone[0] <= meter_pos <= meter_green_zone[1]
+                        print(f"Meter position: {meter_pos:.2f}, Green zone: {meter_green_zone}, Is green: {meter_good}")
                         
                         # Distance affects shot power (farther = less power)
                         player_center_x = controlled_player.x + controlled_player.width // 2
@@ -330,6 +331,7 @@ while running:
                         dist = math.hypot(player_center_x - hoop.rim_x, player_center_y - hoop.rim_y)
                         power = max(0.4, 1 - min(dist / 400, 1))
                         
+                        print(f"Shooting with perfect_shot={meter_good}, power={power}")
                         # Pass hoop coordinates for perfect shots
                         ball.shoot(meter_good, power, hoop.rim_x, hoop.rim_y)
                 
@@ -381,14 +383,16 @@ while running:
             teammates.update(controlled_player, ball, defenders.defenders, hoop)
             defenders.update(controlled_player, teammates.teammates, ball, hoop)
             
-            # Check for steals and blocks
-            if defenders.check_steals(controlled_player, ball):
+            # Check for steals and blocks - but not for perfect shots
+            if defenders.check_steals(controlled_player, ball) and not ball.perfect_shot:
+                print("Ball reset due to STEAL by defenders")
                 # Ball was stolen - reset to defender
                 ball.reset()
                 meter_pos = 0.0
                 meter_dir = 1
                 
-            if defenders.check_blocks(ball, hoop):
+            if defenders.check_blocks(ball, hoop) and not ball.perfect_shot:
+                print("Ball reset due to BLOCK by defenders")
                 # Shot was blocked - reset ball
                 ball.reset()
                 meter_pos = 0.0
@@ -441,17 +445,63 @@ while running:
             ball.y = controlled_player.y + controlled_player.height // 2
         
         # Reset the ball if it goes off-screen
-        if ball.y > HEIGHT + 50 or ball.x > WIDTH + 50 or ball.x < -50:
+        if not ball.held and (ball.y > HEIGHT + 50 or ball.x > WIDTH + 50 or ball.x < -50):
+            print(f"Ball reset due to going off-screen: ball pos=({ball.x}, {ball.y})")
             ball.reset()
             meter_pos = 0.0
             meter_dir = 1
         
+        # Check for backboard collision (imperfect shots)
+        if not ball.perfect_shot and not ball.held:
+            # Backboard collision detection
+            backboard_left = hoop.backboard_x - camera_x
+            backboard_right = backboard_left + hoop.backboard_width
+            backboard_top = hoop.backboard_y - camera_y
+            backboard_bottom = backboard_top + hoop.backboard_height
+            
+            ball_screen_x = ball.x - camera_x
+            ball_screen_y = ball.y - camera_y
+            
+            # Check if ball hits backboard
+            if (backboard_left - ball.radius <= ball_screen_x <= backboard_right + ball.radius and
+                backboard_top - ball.radius <= ball_screen_y <= backboard_bottom + ball.radius):
+                
+                # Ball hit backboard - bounce it back and give to AI
+                ball.speed_x = -abs(ball.speed_x) * 0.8  # Bounce back
+                ball.speed_y *= 0.7  # Reduce upward speed
+                
+                # Give ball to AI after short delay
+                if not hasattr(ball, 'backboard_hit_timer'):
+                    ball.backboard_hit_timer = 30
+                
+                if ball.backboard_hit_timer > 0:
+                    ball.backboard_hit_timer -= 1
+                else:
+                    # Reset ball to AI position
+                    ball.reset()
+                    ball.held = True
+                    ball.held_by = ai
+                    ball.x = ai.x + ai.width // 2
+                    ball.y = ai.y + ai.height // 2
+                    meter_pos = 0.0
+                    meter_dir = 1
+        
         # Score when the ball passes through the rim from above
-        if hoop.check_score(ball):
+        if hoop.check_score(ball) and not ball.has_scored:
+            print("SCORE DETECTED - Adding point to player!")
             player_score += 1
+            ball.has_scored = True  # Mark as scored to prevent duplicates
+            print(f"New score: {player_score} - {ai_score}")
+            
+            # Return ball to player after scoring
             ball.reset()
+            ball.held = True
+            ball.held_by = controlled_player
+            ball.x = controlled_player.x + controlled_player.width // 2
+            ball.y = controlled_player.y + controlled_player.height // 2
             meter_pos = 0.0
             meter_dir = 1
+            
             # Trigger crowd celebration on score
             if crowd:
                 crowd.trigger_celebration()

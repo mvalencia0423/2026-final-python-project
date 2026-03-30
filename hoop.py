@@ -493,14 +493,14 @@ class Hoop:
                        (rim_x + self.rim_radius - 5, rim_y + 15), 2)
 
     def check_score(self, ball):
-        # Simple scoring - if ball is perfect shot and near hoop, score
-        if ball.perfect_shot:
+        # Only perfect shots can score - and only if they haven't scored yet
+        if ball.perfect_shot and not ball.has_scored:
             distance = math.hypot(ball.x - self.rim_x, ball.y - self.rim_y)
-            if distance < self.rim_radius + 5:  # Ball is near/going through hoop
+            print(f"Perfect shot check: ball pos=({ball.x}, {ball.y}), hoop pos=({self.rim_x}, {self.rim_y}), distance={distance}")
+            # Much much larger scoring area for perfect shots - almost guaranteed
+            if distance < self.rim_radius + 35:  # Increased from 15 to 35
+                print("PERFECT SHOT SCORED!")
                 return True
         
-        # Regular shot logic
-        if ball.can_score and ball.speed_y > 0 and self.score_zone.collidepoint(ball.x, ball.y):
-            return True
-            
+        # No other scoring allowed
         return False

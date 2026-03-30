@@ -157,20 +157,23 @@ class Crowd:
     def create_simple_cheer_sounds(self):
         """Create simple cheer sounds programmatically"""
         try:
-            # Generate simple cheer sounds using pygame's sound generation
-            for _ in range(3):
-                # Create a simple white noise burst for crowd noise
-                duration = 0.5  # seconds
-                sample_rate = 22050
-                samples = int(duration * sample_rate)
-                
-                # Generate white noise
-                noise = [random.randint(-32768, 32767) for _ in range(samples)]
-                
-                # Convert to pygame sound
-                sound = pygame.sndarray.make_sound(noise)
-                sound.set_volume(0.3)
-                self.cheer_sounds.append(sound)
+            # Create a simple beep sound as fallback
+            sample_rate = 22050
+            duration = 0.3
+            samples = int(duration * sample_rate)
+            
+            # Generate a simple tone
+            frequency = 440  # A4 note
+            sound_array = []
+            for i in range(samples):
+                value = int(32767 * math.sin(2 * math.pi * frequency * i / sample_rate))
+                sound_array.append([value, value])  # Stereo
+            
+            # Convert to pygame sound
+            sound = pygame.sndarray.make_sound(sound_array)
+            sound.set_volume(0.2)
+            self.cheer_sounds.append(sound)
+            print("Created simple cheer sound")
                 
         except Exception as e:
             print(f"Could not create cheer sounds: {e}")
@@ -242,11 +245,12 @@ class Crowd:
             self.cheer_cooldown -= 1
         
         # Random chance to start a cheer (every few seconds)
-        if self.cheer_cooldown == 0 and random.random() < 0.005:
+        if self.cheer_cooldown == 0 and random.random() < 0.02:  # Increased from 0.005 to 0.02
             self.cheer_active = True
             self.cheer_duration = random.randint(60, 120)  # 1-2 seconds at 60 FPS
-            self.cheer_cooldown = random.randint(300, 600)  # 5-10 seconds cooldown
+            self.cheer_cooldown = random.randint(180, 300)  # 3-5 seconds cooldown
             self.play_cheer_sound()  # Play sound when cheer starts
+            print("CROWD CHEERING!")  # Debug output
         
         if self.cheer_active:
             self.cheer_duration -= 1
