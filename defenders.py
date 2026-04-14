@@ -3,23 +3,33 @@ import math
 import random
 
 class Defender:
-    def __init__(self, x, y, role="guard", number=None):
+    def __init__(self, x, y, role="guard", number=None, customization=None):
         self.x = x
         self.y = y
         self.role = role  # "guard", "forward", "center"
         self.width = 30
         self.height = 60
-        self.speed = 3.5 if role == "guard" else 3 if role == "forward" else 2.5
+        self.speed = 2.5 if role == "guard" else 2.0 if role == "forward" else 1.5
         
-        # Appearance (enemy team colors)
-        skin_tones = [(255, 220, 177), (255, 195, 140), (235, 170, 120), (180, 120, 80), (120, 80, 50)]
-        hair_colors = [(0, 0, 0), (50, 30, 0), (100, 60, 30)]
+        # Use customization if provided, otherwise use enemy team defaults
+        if customization:
+            self.skin_tone = customization.get('skin_color', (255, 220, 177))
+            self.hair_color = (0, 0, 0)  # Default black hair
+            self.shoes_color = customization.get('shoe_color', (50, 50, 50))
+            # Enemy team - different jersey color but same style
+            self.jersey_color = (50, 50, 200)  # Blue enemy team
+            self.shorts_color = (50, 50, 200)
+        else:
+            # Default enemy team appearance
+            skin_tones = [(255, 220, 177), (255, 195, 140), (235, 170, 120), (180, 120, 80), (120, 80, 50)]
+            hair_colors = [(0, 0, 0), (50, 30, 0), (100, 60, 30)]
+            
+            self.skin_tone = random.choice(skin_tones)
+            self.hair_color = random.choice(hair_colors)
+            self.jersey_color = (200, 50, 50)  # Red team
+            self.shorts_color = (200, 50, 50)
+            self.shoes_color = (50, 50, 50)
         
-        self.skin_tone = random.choice(skin_tones)
-        self.hair_color = random.choice(hair_colors)
-        self.jersey_color = (200, 50, 50)  # Red team
-        self.shorts_color = (200, 50, 50)
-        self.shoes_color = (50, 50, 50)
         self.number = number or str(random.randint(1, 99))
         
         # Defensive AI behavior
@@ -127,8 +137,8 @@ class Defender:
         dist = math.hypot(dx, dy)
         
         if dist > 0:
-            # Position between player and hoop
-            defend_distance = 40 if self.role == "guard" else 50 if self.role == "forward" else 60
+            # Position between player and hoop with more distance
+            defend_distance = 60 if self.role == "guard" else 70 if self.role == "forward" else 80
             self.target_x = player.x + (dx / dist) * defend_distance
             self.target_y = player.y + (dy / dist) * defend_distance
             
@@ -151,8 +161,8 @@ class Defender:
         dist = math.hypot(dx, dy)
         
         if dist > 0:
-            # Stay between opponent and hoop
-            mark_distance = 30 if self.role == "guard" else 40
+            # Stay between opponent and hoop with more distance
+            mark_distance = 50 if self.role == "guard" else 60
             self.target_x = opponent.x - (dx / dist) * mark_distance
             self.target_y = opponent.y - (dy / dist) * mark_distance
             
@@ -297,8 +307,9 @@ class Defender:
 
 
 class DefenderManager:
-    def __init__(self):
+    def __init__(self, customization=None):
         self.defenders = []
+        self.customization = customization
         self.create_defense()
         
     def create_defense(self):
@@ -312,7 +323,7 @@ class DefenderManager:
         ]
         
         for x, y, role, number in positions:
-            self.defenders.append(Defender(x, y, role, number))
+            self.defenders.append(Defender(x, y, role, number, self.customization))
             
     def update(self, player, teammates, ball, hoop):
         """Update all defenders AI"""

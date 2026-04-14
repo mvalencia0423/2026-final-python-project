@@ -1,5 +1,6 @@
 import math
 import pygame
+import sys
 from player import Player
 from ball import Ball
 from ai import AI
@@ -21,9 +22,10 @@ pygame.display.set_caption("Street Hoops")
 clock = pygame.time.Clock()
 
 # Game states
-STATE_TITLE_SCREEN = "title_screen"
-STATE_LOCKER_ROOM = "locker_room"
-STATE_PLAYING = "playing"
+STATE_TITLE_SCREEN = 0
+STATE_LOCKER_ROOM = 1
+STATE_WELCOME_SCREEN = 2
+STATE_PLAYING = 3
 current_state = STATE_TITLE_SCREEN
 
 # Initialize locker room
@@ -52,6 +54,36 @@ meter_green_zone = (0.4, 0.6)
 # Camera for first-person view
 camera_x = 0
 camera_y = 0
+
+def draw_welcome_screen(screen):
+    # Black background
+    screen.fill((0, 0, 0))
+    
+    # Welcome message - large white text
+    welcome_font = pygame.font.SysFont("impact", 60, bold=True)
+    welcome_text = welcome_font.render("Welcome to Court!", True, (255, 255, 255))
+    welcome_rect = welcome_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 100))
+    screen.blit(welcome_text, welcome_rect)
+    
+    # Controls instructions - white text
+    controls_font = pygame.font.SysFont("arial", 32)
+    controls_lines = [
+        "SPACE = Shoot",
+        "TAB = Change players",
+        "Shoot when the shot meter is green",
+        "Don't let the defenders block your shot!"
+    ]
+    
+    for i, line in enumerate(controls_lines):
+        control_text = controls_font.render(line, True, (255, 255, 255))
+        control_rect = control_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + i * 50))
+        screen.blit(control_text, control_rect)
+    
+    # Press any key to continue
+    continue_font = pygame.font.SysFont("arial", 20)
+    continue_text = continue_font.render("Press SPACE to start playing", True, (200, 200, 200))
+    continue_rect = continue_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+    screen.blit(continue_text, continue_rect)
 
 def draw_title_screen(screen):
     # Black background
@@ -272,16 +304,16 @@ def start_game():
         'shoes_color': customization.get('shoe_color', (255, 255, 255)),
         'number': "23"
     }
-    
+
     # Initialize game objects with customization
     player = Player(100, 300, **player_params)
     ai = AI(600, 300)
     ball = Ball(player.x, player.y)
     hoop = Hoop(1180, 300)  # Position at the actual end of the court (1200 - backboard width)
     
-    # Initialize AI teammates and defenders
-    teammates = TeammateManager()
-    defenders = DefenderManager()
+    # Initialize AI teammates and defenders with player's customization
+    teammates = TeammateManager(customization)
+    defenders = DefenderManager(customization)
     
     # Initialize ultra-realistic crowd system
     crowd = Crowd(1200, 700)
@@ -295,8 +327,8 @@ def start_game():
     meter_pos = 0.0
     meter_dir = 1
     
-    # Change state to playing
-    current_state = STATE_PLAYING
+    # Change state to welcome screen
+    current_state = STATE_WELCOME_SCREEN
 
 running = True
 
@@ -317,13 +349,17 @@ while running:
             if result == "start_game":
                 start_game()
         
+        elif current_state == STATE_WELCOME_SCREEN:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    current_state = STATE_PLAYING
+        
         elif current_state == STATE_PLAYING:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     # Shoot using the shot meter if ball is currently held
                     if ball.held and controlled_player:
                         meter_good = meter_green_zone[0] <= meter_pos <= meter_green_zone[1]
-                        print(f"Meter position: {meter_pos:.2f}, Green zone: {meter_green_zone}, Is green: {meter_good}")
                         
                         # Distance affects shot power (farther = less power)
                         player_center_x = controlled_player.x + controlled_player.width // 2
@@ -331,7 +367,6 @@ while running:
                         dist = math.hypot(player_center_x - hoop.rim_x, player_center_y - hoop.rim_y)
                         power = max(0.4, 1 - min(dist / 400, 1))
                         
-                        print(f"Shooting with perfect_shot={meter_good}, power={power}")
                         # Pass hoop coordinates for perfect shots
                         ball.shoot(meter_good, power, hoop.rim_x, hoop.rim_y)
                 
@@ -368,6 +403,10 @@ while running:
         locker_room.draw()
         pygame.display.update()
     
+    elif current_state == STATE_WELCOME_SCREEN:
+        draw_welcome_screen(screen)
+        pygame.display.update()
+    
     elif current_state == STATE_PLAYING:
         keys = pygame.key.get_pressed()
         
@@ -385,15 +424,11 @@ while running:
             
             # Check for steals and blocks - but not for perfect shots
             if defenders.check_steals(controlled_player, ball) and not ball.perfect_shot:
-                print("Ball reset due to STEAL by defenders")
-                # Ball was stolen - reset to defender
                 ball.reset()
                 meter_pos = 0.0
                 meter_dir = 1
                 
             if defenders.check_blocks(ball, hoop) and not ball.perfect_shot:
-                print("Ball reset due to BLOCK by defenders")
-                # Shot was blocked - reset ball
                 ball.reset()
                 meter_pos = 0.0
                 meter_dir = 1
@@ -426,7 +461,7 @@ while running:
         ball.move()
         
         # Check for pass reception
-        if not ball.held and controlled_player:
+        if not ball.held and controlled_player and not ball.perfect_shot and ball.shot_protection_timer <= 0:
             # Check if controlled player is near the ball
             dist_to_ball = math.hypot(controlled_player.x - ball.x, controlled_player.y - ball.y)
             if dist_to_ball < 30:
@@ -443,10 +478,16 @@ while running:
             ball.held_by = controlled_player
             ball.x = controlled_player.x + controlled_player.width // 2
             ball.y = controlled_player.y + controlled_player.height // 2
+            
+            # Update dribbling animation based on player movement
+            # Check if player is moving (works for both Player and Teammate)
+            is_moving = hasattr(controlled_player, 'is_running') and controlled_player.is_running
+            if not is_moving and hasattr(controlled_player, 'running_frame'):
+                is_moving = controlled_player.running_frame > 0
+            ball.update_dribble(is_moving)
         
         # Reset the ball if it goes off-screen
         if not ball.held and (ball.y > HEIGHT + 50 or ball.x > WIDTH + 50 or ball.x < -50):
-            print(f"Ball reset due to going off-screen: ball pos=({ball.x}, {ball.y})")
             ball.reset()
             meter_pos = 0.0
             meter_dir = 1
@@ -486,12 +527,10 @@ while running:
                     meter_pos = 0.0
                     meter_dir = 1
         
-        # Score when the ball passes through the rim from above
+        # Score when the ball passes through the rim
         if hoop.check_score(ball) and not ball.has_scored:
-            print("SCORE DETECTED - Adding point to player!")
             player_score += 1
-            ball.has_scored = True  # Mark as scored to prevent duplicates
-            print(f"New score: {player_score} - {ai_score}")
+            ball.has_scored = True
             
             # Return ball to player after scoring
             ball.reset()
@@ -502,23 +541,48 @@ while running:
             meter_pos = 0.0
             meter_dir = 1
             
-            # Trigger crowd celebration on score
+            # Trigger crowd celebration
             if crowd:
                 crowd.trigger_celebration()
-            # Trigger hoop animation
             hoop.update(True)
         
-        # Draw street basketball court
+        # Draw everything
         draw_court(screen, camera_x, camera_y)
-        
-        # Draw game objects with camera offset
         hoop.draw(screen, camera_x, camera_y)
         
-        # Draw ultra-realistic crowd (draw after hoop so it appears behind)
+        # Draw crowd
         if crowd:
             crowd.draw(screen, camera_x, camera_y)
         
-        # Draw the shot meter
+        # Draw teammates and defenders
+        if teammates and defenders:
+            teammates.draw(screen, camera_x, camera_y)
+            defenders.draw(screen, camera_x, camera_y)
+        
+        # Draw players
+        player.draw(screen, camera_x, camera_y)
+        ai.draw(screen, camera_x, camera_y)
+        
+        # Draw control indicator
+        if controlled_player:
+            control_x = controlled_player.x + controlled_player.width // 2 - camera_x
+            control_y = controlled_player.y - 20 - camera_y
+            
+            pygame.draw.polygon(screen, (255, 255, 0), [
+                (control_x, control_y),
+                (control_x - 8, control_y - 10),
+                (control_x + 8, control_y - 10)
+            ])
+            
+            font_small = pygame.font.Font(None, 16)
+            you_text = font_small.render("YOU", True, (255, 255, 0))
+            you_rect = you_text.get_rect(center=(control_x, control_y - 15))
+            screen.blit(you_text, you_rect)
+        
+        # Draw ball
+        ball.draw(screen, camera_x, camera_y)
+        
+        # Draw shot meter
         if ball.held:
             meter_color = (0, 255, 0) if meter_green_zone[0] <= meter_pos <= meter_green_zone[1] else (255, 255, 255)
             meter_x = 50
@@ -528,40 +592,6 @@ while running:
             pygame.draw.rect(screen, (100, 100, 100), (meter_x, meter_y, meter_width, meter_height))
             fill_width = int(meter_pos * meter_width)
             pygame.draw.rect(screen, meter_color, (meter_x, meter_y, fill_width, meter_height))
-        
-        # Draw teammates and defenders
-        if teammates and defenders:
-            teammates.draw(screen, camera_x, camera_y)
-            defenders.draw(screen, camera_x, camera_y)
-        
-        # Draw all players
-        player.draw(screen, camera_x, camera_y)
-        ai.draw(screen, camera_x, camera_y)
-        
-        # Draw control indicator above controlled player
-        if controlled_player:
-            control_x = controlled_player.x + controlled_player.width // 2 - camera_x
-            control_y = controlled_player.y - 20 - camera_y
-            
-            # Draw arrow indicator
-            pygame.draw.polygon(screen, (255, 255, 0), [
-                (control_x, control_y),
-                (control_x - 8, control_y - 10),
-                (control_x + 8, control_y - 10)
-            ])
-            pygame.draw.polygon(screen, (255, 200, 0), [
-                (control_x, control_y + 2),
-                (control_x - 6, control_y - 8),
-                (control_x + 6, control_y - 8)
-            ])
-            
-            # Draw "YOU" text
-            font_small = pygame.font.Font(None, 16)
-            you_text = font_small.render("YOU", True, (255, 255, 0))
-            you_rect = you_text.get_rect(center=(control_x, control_y - 15))
-            screen.blit(you_text, you_rect)
-        
-        ball.draw(screen, camera_x, camera_y)
         
         # Draw controls help
         font_small = pygame.font.Font(None, 20)
@@ -575,9 +605,11 @@ while running:
             control_text = font_small.render(text, True, (200, 200, 200))
             screen.blit(control_text, (10, 10 + i * 20))
         
+        # Draw score
         score_text = font.render(f"{player_score} - {ai_score}", True, (255, 255, 255))
         screen.blit(score_text, (370, 20))
         
         pygame.display.update()
 
 pygame.quit()
+sys.exit()

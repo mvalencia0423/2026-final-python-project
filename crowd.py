@@ -151,7 +151,6 @@ class Crowd:
                 self.create_simple_cheer_sounds()
                 
         except Exception as e:
-            print(f"Could not load cheer sounds: {e}")
             self.sounds_enabled = False
     
     def create_simple_cheer_sounds(self):
@@ -169,14 +168,20 @@ class Crowd:
                 value = int(32767 * math.sin(2 * math.pi * frequency * i / sample_rate))
                 sound_array.append([value, value])  # Stereo
             
-            # Convert to pygame sound
-            sound = pygame.sndarray.make_sound(sound_array)
-            sound.set_volume(0.2)
-            self.cheer_sounds.append(sound)
-            print("Created simple cheer sound")
+            # Convert to pygame sound (only if numpy is available)
+            try:
+                import numpy
+                sound = pygame.sndarray.make_sound(sound_array)
+                sound.set_volume(0.2)
+                self.cheer_sounds.append(sound)
+            except ImportError:
+                # Skip sound generation if numpy is not available
+                pass
+            except:
+                # Skip sound generation for other sound-related errors
+                pass
                 
         except Exception as e:
-            print(f"Could not create cheer sounds: {e}")
             self.sounds_enabled = False
     
     def play_cheer_sound(self):
@@ -186,7 +191,7 @@ class Crowd:
                 cheer_sound = random.choice(self.cheer_sounds)
                 cheer_sound.play()
             except Exception as e:
-                print(f"Could not play cheer sound: {e}")
+                pass
     
     def create_crowd_sections(self):
         """Create fans in stadium sections (exactly at court edges, no overlap)"""
@@ -250,7 +255,6 @@ class Crowd:
             self.cheer_duration = random.randint(60, 120)  # 1-2 seconds at 60 FPS
             self.cheer_cooldown = random.randint(180, 300)  # 3-5 seconds cooldown
             self.play_cheer_sound()  # Play sound when cheer starts
-            print("CROWD CHEERING!")  # Debug output
         
         if self.cheer_active:
             self.cheer_duration -= 1

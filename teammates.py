@@ -2,8 +2,12 @@ import pygame
 import math
 import random
 
+def safe_color_subtract(color, amount):
+    """Safely subtract amount from color values, preventing negative numbers"""
+    return (max(0, color[0]-amount), max(0, color[1]-amount), max(0, color[2]-amount))
+
 class Teammate:
-    def __init__(self, x, y, role="guard", number=None):
+    def __init__(self, x, y, role="guard", number=None, customization=None):
         self.x = x
         self.y = y
         self.role = role  # "guard", "forward", "center"
@@ -11,15 +15,24 @@ class Teammate:
         self.height = 60
         self.speed = 3 if role == "guard" else 2.5 if role == "forward" else 2
         
-        # Appearance
-        skin_tones = [(255, 220, 177), (255, 195, 140), (235, 170, 120), (180, 120, 80)]
-        hair_colors = [(0, 0, 0), (50, 30, 0), (100, 60, 30), (255, 255, 255)]
+        # Use customization if provided, otherwise use random defaults
+        if customization:
+            self.skin_tone = customization.get('skin_color', (255, 220, 177))
+            self.hair_color = (0, 0, 0)  # Default black hair
+            self.jersey_color = customization.get('jersey_color', (50, 50, 200))
+            self.shorts_color = customization.get('jersey_color', (50, 50, 200))
+            self.shoes_color = customization.get('shoe_color', (200, 200, 200))
+        else:
+            # Random appearance for AI teammates
+            skin_tones = [(255, 220, 177), (255, 195, 140), (235, 170, 120), (180, 120, 80)]
+            hair_colors = [(0, 0, 0), (50, 30, 0), (100, 60, 30), (255, 255, 255)]
+            
+            self.skin_tone = random.choice(skin_tones)
+            self.hair_color = random.choice(hair_colors)
+            self.jersey_color = (50, 50, 200)  # Blue team
+            self.shorts_color = (50, 50, 200)
+            self.shoes_color = (200, 200, 200)
         
-        self.skin_tone = random.choice(skin_tones)
-        self.hair_color = random.choice(hair_colors)
-        self.jersey_color = (50, 50, 200)  # Blue team
-        self.shorts_color = (50, 50, 200)
-        self.shoes_color = (200, 200, 200)
         self.number = number or str(random.randint(1, 99))
         
         # AI behavior
@@ -175,18 +188,18 @@ class Teammate:
         # Draw legs with muscular definition
         # Left leg (quadriceps, calves)
         pygame.draw.rect(screen, self.skin_tone, (draw_x - 8, draw_y + 25, 6, 20))  # Upper thigh
-        pygame.draw.rect(screen, (self.skin_tone[0]-15, self.skin_tone[1]-15, self.skin_tone[2]-15), 
+        pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 15), 
                         (draw_x - 8, draw_y + 25, 6, 3))  # Muscle highlight
         pygame.draw.rect(screen, self.skin_tone, (draw_x - 7, draw_y + 45, 5, 12))  # Lower leg
-        pygame.draw.rect(screen, (self.skin_tone[0]-10, self.skin_tone[1]-10, self.skin_tone[2]-10), 
+        pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 10), 
                         (draw_x - 7, draw_y + 45, 5, 2))  # Shin highlight
         
         # Right leg (quadriceps, calves)
         pygame.draw.rect(screen, self.skin_tone, (draw_x + 2, draw_y + 25, 6, 20))  # Upper thigh
-        pygame.draw.rect(screen, (self.skin_tone[0]-15, self.skin_tone[1]-15, self.skin_tone[2]-15), 
+        pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 15), 
                         (draw_x + 2, draw_y + 25, 6, 3))  # Muscle highlight
         pygame.draw.rect(screen, self.skin_tone, (draw_x + 2, draw_y + 45, 5, 12))  # Lower leg
-        pygame.draw.rect(screen, (self.skin_tone[0]-10, self.skin_tone[1]-10, self.skin_tone[2]-10), 
+        pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 10), 
                         (draw_x + 2, draw_y + 45, 5, 2))  # Shin highlight
         
         # Draw ultra-realistic NBA shorts with details
@@ -194,9 +207,10 @@ class Teammate:
         pygame.draw.rect(screen, self.shorts_color, shorts_main)
         
         # Shorts side panels (NBA style)
-        pygame.draw.rect(screen, (self.shorts_color[0]-30, self.shorts_color[1]-30, self.shorts_color[2]-30), 
+        panel_color = safe_color_subtract(self.shorts_color, 30)
+        pygame.draw.rect(screen, panel_color, 
                         (draw_x - 12, draw_y + 20, 4, 18))  # Left panel
-        pygame.draw.rect(screen, (self.shorts_color[0]-30, self.shorts_color[1]-30, self.shorts_color[2]-30), 
+        pygame.draw.rect(screen, panel_color, 
                         (draw_x + 8, draw_y + 20, 4, 18))  # Right panel
         
         # Shorts waistband with realistic detail
@@ -207,15 +221,20 @@ class Teammate:
         torso_main = (draw_x - 10, draw_y + 5, 20, 18)
         pygame.draw.rect(screen, self.skin_tone, torso_main)
         
-        # Ab lines (realistic 6-pack)
-        for i in range(3):
-            abs_y = draw_y + 8 + i * 4
-            pygame.draw.line(screen, (self.skin_tone[0]-20, self.skin_tone[1]-20, self.skin_tone[2]-20), 
-                           (draw_x - 5, abs_y), (draw_x + 5, abs_y), 1)
+        # Enhanced abs and obliques
+        if self.running_frame % 10 < 5:  # Flexing during motion
+            pygame.draw.line(screen, safe_color_subtract(self.skin_tone, 20), 
+                           (draw_x - 5, draw_y + 12), (draw_x + 5, draw_y + 12), 2)  # Top abs line
+            pygame.draw.line(screen, safe_color_subtract(self.skin_tone, 20), 
+                           (draw_x - 4, draw_y + 16), (draw_x + 4, draw_y + 16), 2)  # Middle abs line
+            pygame.draw.line(screen, safe_color_subtract(self.skin_tone, 20), 
+                           (draw_x - 3, draw_y + 20), (draw_x + 3, draw_y + 20), 1)  # Bottom abs line
         
-        # Chest muscle definition
-        pygame.draw.arc(screen, (self.skin_tone[0]-15, self.skin_tone[1]-15, self.skin_tone[2]-15), 
-                       (draw_x - 8, draw_y + 5, 16, 12), 0, 3.14, 2)
+        # Oblique muscles
+        pygame.draw.arc(screen, safe_color_subtract(self.skin_tone, 15), 
+                       (draw_x - 12, draw_y + 8, 24, 20), 0, math.pi/2, 2)
+        pygame.draw.arc(screen, safe_color_subtract(self.skin_tone, 15), 
+                       (draw_x - 12, draw_y + 8, 24, 20), math.pi/2, math.pi, 2)
         
         # Draw ultra-realistic NBA jersey with advanced details
         jersey_main = (draw_x - 11, draw_y + 3, 22, 20)
@@ -230,28 +249,28 @@ class Teammate:
         pygame.draw.ellipse(screen, (200, 200, 200), (draw_x - 4, draw_y + 3, 8, 4))
         
         # Jersey side panels (realistic NBA design)
-        pygame.draw.rect(screen, (self.jersey_color[0]-40, self.jersey_color[1]-40, self.jersey_color[2]-40), 
+        pygame.draw.rect(screen, safe_color_subtract(self.jersey_color, 40), 
                         (draw_x - 11, draw_y + 3, 3, 20))  # Left panel
-        pygame.draw.rect(screen, (self.jersey_color[0]-40, self.jersey_color[1]-40, self.jersey_color[2]-40), 
+        pygame.draw.rect(screen, safe_color_subtract(self.jersey_color, 40), 
                         (draw_x + 8, draw_y + 3, 3, 20))  # Right panel
         
         # Draw ultra-realistic arms with muscle definition
         # Left arm with bicep/tricep details
         left_arm_x = draw_x - 10 + int(self.arm_swing * 0.3)
         pygame.draw.rect(screen, self.skin_tone, (left_arm_x - 3, draw_y + 8, 6, 15))  # Bicep
-        pygame.draw.rect(screen, (self.skin_tone[0]-12, self.skin_tone[1]-12, self.skin_tone[2]-12), 
+        pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 12), 
                         (left_arm_x - 3, draw_y + 8, 2, 15))  # Bicep highlight
         pygame.draw.rect(screen, self.skin_tone, (left_arm_x - 2, draw_y + 23, 5, 12))  # Forearm
-        pygame.draw.rect(screen, (self.skin_tone[0]-8, self.skin_tone[1]-8, self.skin_tone[2]-8), 
-                        (left_arm_x - 2, draw_y + 23, 2, 12))  # Forearm highlight
+        pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 8), 
+                        (left_arm_x - 2, draw_y + 23, 5, 2))  # Forearm highlight
         
         # Right arm with bicep/tricep details  
         right_arm_x = draw_x + 10 + int(self.arm_swing * 0.3)
         pygame.draw.rect(screen, self.skin_tone, (right_arm_x - 3, draw_y + 8, 6, 15))  # Bicep
-        pygame.draw.rect(screen, (self.skin_tone[0]-12, self.skin_tone[1]-12, self.skin_tone[2]-12), 
-                        (right_arm_x + 1, draw_y + 8, 2, 15))  # Bicep highlight
+        pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 12), 
+                        (right_arm_x - 3, draw_y + 8, 2, 15))  # Bicep highlight
         pygame.draw.rect(screen, self.skin_tone, (right_arm_x - 2, draw_y + 23, 5, 12))  # Forearm
-        pygame.draw.rect(screen, (self.skin_tone[0]-8, self.skin_tone[1]-8, self.skin_tone[2]-8), 
+        pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 8), 
                         (right_arm_x + 1, draw_y + 23, 2, 12))  # Forearm highlight
         
         # Draw ultra-realistic hands with fingers
@@ -275,11 +294,11 @@ class Teammate:
         
         # Head shape with realistic jawline
         pygame.draw.ellipse(screen, self.skin_tone, (head_x - 10, head_y - 5, 20, 18))
-        pygame.draw.ellipse(screen, (self.skin_tone[0]-10, self.skin_tone[1]-10, self.skin_tone[2]-10), 
+        pygame.draw.ellipse(screen, safe_color_subtract(self.skin_tone, 10), 
                            (head_x - 8, head_y - 3, 16, 14))  # Inner face shading
         
         # Jawline definition
-        pygame.draw.arc(screen, (self.skin_tone[0]-15, self.skin_tone[1]-15, self.skin_tone[2]-15), 
+        pygame.draw.arc(screen, safe_color_subtract(self.skin_tone, 15), 
                        (head_x - 10, head_y + 5, 20, 8), 0, 3.14, 2)
         
         # Ultra-realistic hair with texture
@@ -309,13 +328,13 @@ class Teammate:
         pygame.draw.circle(screen, (50, 50, 50), (right_eye_x, eye_y), 1)
         
         # Realistic nose with bridge
-        pygame.draw.polygon(screen, (self.skin_tone[0]-20, self.skin_tone[1]-20, self.skin_tone[2]-20), [
+        pygame.draw.polygon(screen, safe_color_subtract(self.skin_tone, 20), [
             (head_x, head_y + 4),
             (head_x - 2, head_y + 7),
             (head_x + 2, head_y + 7)
         ])
         # Nose bridge line
-        pygame.draw.line(screen, (self.skin_tone[0]-15, self.skin_tone[1]-15, self.skin_tone[2]-15), 
+        pygame.draw.line(screen, safe_color_subtract(self.skin_tone, 15), 
                        (head_x, head_y), (head_x, head_y + 4), 1)
         
         # Realistic mouth with lips
@@ -393,15 +412,16 @@ class Teammate:
         # Muscle flexing effect when running
         if self.running_frame % 10 < 5:
             # Enhanced muscle definition during movement
-            pygame.draw.rect(screen, (self.skin_tone[0]-25, self.skin_tone[1]-25, self.skin_tone[2]-25), 
+            pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 25), 
                             (draw_x - 8, draw_y + 25, 6, 2))  # Left quad flex
-            pygame.draw.rect(screen, (self.skin_tone[0]-25, self.skin_tone[1]-25, self.skin_tone[2]-25), 
+            pygame.draw.rect(screen, safe_color_subtract(self.skin_tone, 25), 
                             (draw_x + 2, draw_y + 25, 6, 2))  # Right quad flex
 
 
 class TeammateManager:
-    def __init__(self):
+    def __init__(self, customization=None):
         self.teammates = []
+        self.customization = customization
         self.create_team()
         
     def create_team(self):
@@ -415,7 +435,7 @@ class TeammateManager:
         ]
         
         for x, y, role, number in positions:
-            self.teammates.append(Teammate(x, y, role, number))
+            self.teammates.append(Teammate(x, y, role, number, self.customization))
             
     def update(self, player, ball, opponents, hoop):
         """Update all teammates AI"""

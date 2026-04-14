@@ -488,18 +488,16 @@ class Hoop:
         pygame.draw.line(screen, (255, 255, 255),
                        (backboard_x + self.backboard_width, backboard_attach_y),
                        (rim_x - self.rim_radius + 5, rim_y + 15), 2)
-        pygame.draw.line(screen, (255, 255, 255),
-                       (backboard_x + self.backboard_width, backboard_attach_y + 10),
-                       (rim_x + self.rim_radius - 5, rim_y + 15), 2)
 
     def check_score(self, ball):
         # Only perfect shots can score - and only if they haven't scored yet
-        if ball.perfect_shot and not ball.has_scored:
+        if ball.perfect_shot and ball.can_score:
             distance = math.hypot(ball.x - self.rim_x, ball.y - self.rim_y)
-            print(f"Perfect shot check: ball pos=({ball.x}, {ball.y}), hoop pos=({self.rim_x}, {self.rim_y}), distance={distance}")
-            # Much much larger scoring area for perfect shots - almost guaranteed
-            if distance < self.rim_radius + 35:  # Increased from 15 to 35
-                print("PERFECT SHOT SCORED!")
+            if distance < 80:  # Increased from 50 to make scoring easier
+                # Force the ball through the hoop for perfect shots
+                ball.x = self.rim_x
+                ball.y = self.rim_y + 10  
+                ball.speed_y = 2  
                 return True
         
         # No other scoring allowed
